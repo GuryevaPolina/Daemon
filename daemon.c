@@ -6,6 +6,25 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <signal.h>
+
+void sig_handler(int signo)
+{
+  if(signo == SIGTERM)
+  {
+    syslog(LOG_INFO, "SIGTERM has been caught! Exiting...");
+    exit(0);
+  }
+}
+
+void handle_signals()
+{
+  if(signal(SIGTERM, sig_handler) == SIG_ERR)
+  {
+    syslog(LOG_ERR, "Error! Can't catch SIGTERM");
+    exit(1);
+  }
+}
 
 void daemonise()
 {
@@ -84,6 +103,7 @@ void daemonise()
 int main()
 {
   daemonise();
+  handle_signals();
 
   while(1)
   {
