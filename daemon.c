@@ -37,6 +37,8 @@ void daemonise()
   pid_t pid, sid;
   FILE *pid_fp;
 
+  syslog(LOG_INFO, "Starting daemonisation.");
+
   //First fork
   pid = fork();
   if(pid < 0)
