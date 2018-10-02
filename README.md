@@ -39,7 +39,7 @@ The check of randomness of data is performed using FIPS 140-2 tests. The tool fo
 
 rngtest is included in the package **rng-tools**. You also can compile it by yourself: https://github.com/waitman/rngtest
 
-FIPS 140-2 includes 1000 tests. Good random source should pass at least 990 of them. Sample use case of rngtest:
+Sample use case of rngtest:
 
 ```bash
 rngtest < ~/random/buffer
