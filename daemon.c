@@ -2,6 +2,7 @@
 #include <sys/resource.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -131,14 +132,72 @@ void daemonise()
   fclose(pid_fp);
 }
 
-int main()
+int main(int argc, char* argv[])
 {
-  daemonise();
-  handle_signals();
+    pid_t pid;
+    FILE *pid_fp;
+    
+    if (argc != 2)
+    {
+        exit(1);
+    }
 
+    chdir(getenv("HOME"));
+    if (!strcmp(argv[1], "start"))
+    {
+        pid_fp = fopen("run/daemon.pid", "r");
+        if(pid_fp == NULL)
+        {
+            syslog(LOG_INFO, "Starting daemon.");
+            daemonise();
+            handle_signals();
+        }
+        else
+        {
+            syslog(LOG_INFO, "Daemon already started.");
+            fclose(pid_fp);
+            exit(0);
+        }
+    }
+    if (!strcmp(argv[1], "stop"))
+    {
+        pid_fp = fopen("run/daemon.pid", "r");
+        if(pid_fp == NULL)
+        {
+            syslog(LOG_INFO, "Daemon isn't started.");
+            exit(0);
+        }
+        else
+        {
+            syslog(LOG_INFO, "Stopping daemon");
+            // Stop Daemon
+            if (fscanf(pid_fp, "%d", &pid) < 0)
+            {
+                syslog(LOG_ERR, "Failed to read daemon pid. Error number is %d", errno);
+                fclose(pid_fp);
+                exit(1);
+            }
+            fclose(pid_fp);
+            if (pid >= 0)
+            {
+                kill(pid, SIGTERM);
+            }
+            else
+            {
+                syslog(LOG_ERR, "Uncorrect pid.");
+                exit(1);
+            }
+            exit(0);
+        }
+    }
+    
+    
   while(1)
   {
-    sleep(1);
+      FILE* file;
+      file = popen("test.txt", "w");
+      fprintf(file, "text");
+      pclose(file);
   }
   return 0;
 }
