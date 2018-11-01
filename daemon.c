@@ -10,6 +10,10 @@
 #include <signal.h>
 #include <errno.h>
 
+char pathToWorkingDirectory[255];
+int period;
+
+
 void sig_handler(int signo)
 {
   if(signo == SIGTERM)
@@ -132,15 +136,46 @@ void daemonise()
   fclose(pid_fp);
 }
 
+void parseConfig(char* pathToConfigFile) {
+    FILE* configFile = fopen(pathToConfigFile, "r");
+    if (configFile == NULL) {
+        syslog(LOG_ERR, "Config file is not found.", errno);
+       // remove("run/daemon.pid");
+        exit(1);
+    }
+    syslog(LOG_DEBUG, "Config file was opened.");
+    char s[256];
+    if (fgets(s, 255, configFile) != NULL) {
+        sscanf(s, "%s", pathToWorkingDirectory);
+    }
+    if (fgets(s, 255, configFile) != NULL) {
+        sscanf(s, "%i", &period);
+    }
+    fclose(configFile);
+    syslog(LOG_DEBUG, "Config file was parsed.");
+}
+
+void deleteDirectories() {
+    syslog(LOG_DEBUG, "delete test");
+}
+
 int main(int argc, char* argv[])
 {
     pid_t pid;
     FILE *pid_fp;
     
+    char pathToConfigFile[255];
+    char currentDirectory[255];
+    
     if (argc != 2)
     {
+        syslog(LOG_ERR, "Must be two command line arguments.");
         exit(1);
     }
+    
+    strcpy(pathToConfigFile, currentDirectory);
+    strcat(pathToConfigFile, "/config.txt");
+    syslog(LOG_INFO, "Path to config was saved.");
 
     chdir(getenv("HOME"));
     if (!strcmp(argv[1], "start"))
@@ -170,7 +205,6 @@ int main(int argc, char* argv[])
         else
         {
             syslog(LOG_INFO, "Stopping daemon");
-            // Stop Daemon
             if (fscanf(pid_fp, "%d", &pid) < 0)
             {
                 syslog(LOG_ERR, "Failed to read daemon pid. Error number is %d", errno);
@@ -191,13 +225,12 @@ int main(int argc, char* argv[])
         }
     }
     
+    parseConfig(pathToConfigFile);
     
-  while(1)
-  {
-      FILE* file;
-      file = popen("test.txt", "w");
-      fprintf(file, "text");
-      pclose(file);
-  }
-  return 0;
+    while(1)
+    {
+        deleteDirectories();
+        sleep(period * 1000);
+    }
+    return 0;
 }
