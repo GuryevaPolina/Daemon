@@ -6,12 +6,15 @@
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <unistd.h>
 #include <signal.h>
 #include <errno.h>
 #include <dirent.h>
+#include <time.h>
 
-char pathToWorkingDirectory[255];
+char pathToCurrentDirectory[] = "/Users/polinaguryeva/Downloads/Daemon-master/";
+char directoryName[255];
 int period;
 
 
@@ -141,14 +144,18 @@ void parseConfig(char* pathToConfigFile) {
     FILE* configFile = fopen(pathToConfigFile, "r");
     if (configFile == NULL) {
         syslog(LOG_ERR, "Config file is not found.", errno);
-        // remove("run/daemon.pid");
+        remove("run/daemon.pid");
         exit(1);
     }
     syslog(LOG_DEBUG, "Config file was opened.");
     char s[256];
     if (fgets(s, 255, configFile) != NULL) {
+        sscanf(s, "%s", directoryName);
+        syslog(LOG_DEBUG, "Directory name is %s.", directoryName);
+    }
+    if (fgets(s, 255, configFile) != NULL) {
         sscanf(s, "%i", &period);
-        syslog(LOG_DEBUG, "Period is 120 sec.");
+        syslog(LOG_DEBUG, "Period is %i sec.", period);
     }
     fclose(configFile);
     syslog(LOG_DEBUG, "Config file was parsed.");
@@ -157,9 +164,15 @@ void parseConfig(char* pathToConfigFile) {
 void removeFiles() {
     DIR *d;
     struct dirent *dir;
+    char pathToWorkingDirectory[255];
+    strcpy(pathToWorkingDirectory, pathToCurrentDirectory);
+    strcat(pathToWorkingDirectory, directoryName);
     d = opendir(pathToWorkingDirectory);
     if (d) {
         while ((dir = readdir(d)) != NULL) {
+            if (!strcmp(dir->d_name, ".") || !strcmp(dir->d_name, "..")) {
+                continue;
+            }
             FILE *file;
             struct stat st;
             char pathToFile[255];
@@ -169,14 +182,14 @@ void removeFiles() {
             if((file = fopen(pathToFile, "rb")) == NULL) {
                 syslog(LOG_DEBUG, "Cannot open file from directory.");
             }
-            stat("test", &st);
+            stat(pathToFile, &st);
             int res = 0;
-            if (st.st_birthtime > 60000) {
+            if (time(NULL) - st.st_birthtimespec.tv_sec > 60) {
                 res = remove(pathToFile);
                 if (res == 0) {
                     syslog(LOG_DEBUG, "File: %s was removed.", pathToFile);
                 } else {
-                    syslog(LOG_DEBUG, "Cannot delete file.");
+                    syslog(LOG_DEBUG, "Cannot remove file %s.", pathToFile);
                 }
             }
             fclose(file);
@@ -190,23 +203,17 @@ int main(int argc, char* argv[])
     pid_t pid;
     FILE *pid_fp;
     
-    char pathToConfigFile[255];
-    char currentDirectory[255];
-    getcwd(currentDirectory, 255);
-    syslog(LOG_INFO, "path to currecnt directory: %s", currentDirectory);
-    
     if (argc != 2)
     {
         syslog(LOG_ERR, "Must be two command line arguments.");
         exit(1);
     }
     
-    strcpy(pathToConfigFile, currentDirectory);
+    syslog(LOG_INFO, "path to working directory: %s", pathToCurrentDirectory);
+    char pathToConfigFile[255];
+    strcpy(pathToConfigFile, pathToCurrentDirectory);
     strcat(pathToConfigFile, "/config.txt");
     syslog(LOG_INFO, "Path to config was saved.");
-    strcpy(pathToWorkingDirectory, currentDirectory);
-    strcat(pathToWorkingDirectory, "/test/");
-    syslog(LOG_INFO, "Path to working directory was saved.");
     
     chdir(getenv("HOME"));
     if (!strcmp(argv[1], "start"))
@@ -221,8 +228,8 @@ int main(int argc, char* argv[])
         else
         {
             syslog(LOG_INFO, "Daemon already started.");
-            fclose(pid_fp);
-            exit(0);
+            //fclose(pid_fp);
+            //exit(0);
         }
     }
     if (!strcmp(argv[1], "stop"))
@@ -239,6 +246,7 @@ int main(int argc, char* argv[])
             if (fscanf(pid_fp, "%d", &pid) < 0)
             {
                 syslog(LOG_ERR, "Failed to read daemon pid. Error number is %d", errno);
+                remove("run/daemon.pid");
                 fclose(pid_fp);
                 exit(1);
             }
@@ -261,7 +269,7 @@ int main(int argc, char* argv[])
     while(1)
     {
         removeFiles();
-        sleep(period * 1000);
+        sleep(period);
     }
     return 0;
 }
